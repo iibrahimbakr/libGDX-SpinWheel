@@ -1,6 +1,6 @@
-**Spin Roulette Wheel in libGDX using Box2D**
+## **Spin Roulette Wheel in libGDX using Box2D**
 
-Debugging Mode:
+**1. Debugging Mode:** to show Box2D working.
 
 ![Debugging Mode](https://media.giphy.com/media/3o7aD37rIAeJJstgCk/giphy.gif)
 
