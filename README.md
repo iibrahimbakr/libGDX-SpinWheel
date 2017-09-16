@@ -4,7 +4,7 @@
 
 ![Debugging Mode](https://media.giphy.com/media/3o7aD37rIAeJJstgCk/giphy.gif)
 
-**2. UI Mode:** to show real forture spin wheel.
+**2. UI Mode:** to show real fortune spin wheel.
 
 ![UI Mode](https://media.giphy.com/media/127izN3gS3AkEM/giphy.gif)
 
