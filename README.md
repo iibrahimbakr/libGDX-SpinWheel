@@ -6,6 +6,6 @@
 
 **2. UI Mode:** to show real fortune spin wheel.
 
-![Debugging Mode](https://media.giphy.com/media/JjOEtk1SkGauA/giphy.gif)
+![UI Mode](https://media.giphy.com/media/JjOEtk1SkGauA/giphy.gif)
 
 Thanks for NauticalMile [answer's](https://gamedev.stackexchange.com/questions/72170/how-simulate-the-return-effect-of-the-wheel-of-fortune-needle) in stackexchange site.
