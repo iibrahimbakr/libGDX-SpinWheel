@@ -24,14 +24,19 @@ import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
 import com.badlogic.gdx.physics.box2d.CircleShape;
+import com.badlogic.gdx.physics.box2d.Contact;
+import com.badlogic.gdx.physics.box2d.ContactImpulse;
+import com.badlogic.gdx.physics.box2d.ContactListener;
+import com.badlogic.gdx.physics.box2d.Fixture;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.Manifold;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.physics.box2d.joints.DistanceJointDef;
 import com.badlogic.gdx.physics.box2d.joints.RevoluteJointDef;
 import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.Timer;
-import com.badlogic.gdx.utils.Timer.Task;
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.ObjectMap;
 
 /**
  * Thanks for NauticalMile answer's in stackexchange site
@@ -46,8 +51,8 @@ import com.badlogic.gdx.utils.Timer.Task;
  * @author Crowni
  */
 public class SpinWheel implements Disposable {
+    public static final float PPM = 100f;
     private static final float STANDARD_SIZE = 512F;
-    private static final float PPM = 100f;
     private static final short BIT_PEG = 4;
     private static final short BIT_NEEDLE = 8;
     private static final short BIT_B1 = 16;
@@ -70,8 +75,8 @@ public class SpinWheel implements Disposable {
     private final float diameter;         // diameter of wheel
     private final float x, y;             // position
     private final int nPegs;              // number of pegs
-
-    private boolean debug = true;   // debug mode
+    private float farNeedle;              // distance of needle from the wheel
+    private boolean spinned = false;      // to ensure a spinning is one time only.
 
     /**
      * All dimensions parameters's dividing on 100 to equivalent Newton's laws according Box2D physics.
@@ -94,6 +99,7 @@ public class SpinWheel implements Disposable {
 
         // world with no gravity
         world = new World(new Vector2(0, 0), true);
+        world.setContactListener(new SpinWheelWorldContact());
 
         // for debugging mode
         renderer = new Box2DDebugRenderer();
@@ -102,6 +108,9 @@ public class SpinWheel implements Disposable {
         createNeedle();
     }
 
+    /**
+     * Just contains on all methods to create a wheel of spin.
+     */
     private void createWheel() {
         // 1- Base of Wheel
         base_of_wheel();
@@ -116,6 +125,9 @@ public class SpinWheel implements Disposable {
         joint_base_core_of_wheel();
     }
 
+    /**
+     * Just contains on all methods to create a needle of spin.
+     */
     private void createNeedle() {
         // 1- Core Of Needle
         core_of_needle(30F * (diameter / STANDARD_SIZE), 80F * (diameter / STANDARD_SIZE));
@@ -136,7 +148,9 @@ public class SpinWheel implements Disposable {
         joint_B1_B2_with_UP_needle();
     }
 
-    // The base of wheel is a static body with as a square shape.
+    /**
+     * The base of wheel is a static body with as a square shape.
+     */
     private void base_of_wheel() {
         PolygonShape polygon = new PolygonShape();
         // Define The Base Of Wheel
@@ -159,7 +173,9 @@ public class SpinWheel implements Disposable {
         polygon.dispose();
     }
 
-    // The core of wheel is a dynamic body as a circle shape
+    /**
+     * The core of wheel is a dynamic body as a circle shape
+     */
     private void core_of_wheel() {
         CircleShape circle = new CircleShape();
         // Define The Base Of Wheel
@@ -187,7 +203,9 @@ public class SpinWheel implements Disposable {
         circle.dispose();
     }
 
-    // The pegs of wheel allowing the needle to collide only with the pegs and not the wheel.
+    /**
+     * The pegs of wheel allowing the needle to collide only with the pegs and not the wheel.
+     **/
     private void pegs_of_wheel() {
         if (nPegs == 0)
             return;
@@ -218,18 +236,19 @@ public class SpinWheel implements Disposable {
             fixtureDef.shape = circle;
 
             // Create The Base Fixture
-            wheelCore.createFixture(fixtureDef);
+            Fixture fixture = wheelCore.createFixture(fixtureDef);
+
+            // set user data as a number of peg to indecator to lucky win element.
+            fixture.setUserData((i + 1));
         }
 
-        // Dispose The Shape
+        // the shape is no longer used.
         circle.dispose();
     }
 
-    // some attributes for position of needle
-    private static final float incY = 05F;
-    private static final float incX = 40F;
-
-    // Left static body to constrain and keep needle in the center.
+    /**
+     * Left static body to constrain and keep needle in the center.
+     */
     private void B1_of_needle() {
         CircleShape circle = new CircleShape();
         // set The Shape of B1
@@ -245,7 +264,7 @@ public class SpinWheel implements Disposable {
         // correctly.
         bodyDef.bullet = true;
 
-        bodyDef.position.set(x - incX * (diameter / STANDARD_SIZE), y + farNeedle);
+        bodyDef.position.set(x - 40F * (diameter / STANDARD_SIZE), y + farNeedle);
 
         // Create The B1 Body
         B1 = world.createBody(bodyDef);
@@ -264,12 +283,11 @@ public class SpinWheel implements Disposable {
 
         // Dispose The Shape
         circle.dispose();
-
-        // add B1 body to array
-        // bodies.add(B1);
     }
 
-    // Right static body to constrain and keep needle in the center.
+    /**
+     * Right static body to constrain and keep needle in the center.
+     */
     private void B2_of_needle() {
         CircleShape circle = new CircleShape();
         // set The Shape of B2
@@ -280,7 +298,7 @@ public class SpinWheel implements Disposable {
         bodyDef.type = BodyType.StaticBody;
         bodyDef.bullet = true;
 
-        bodyDef.position.set(x + incX * (diameter / STANDARD_SIZE), y + farNeedle);
+        bodyDef.position.set(x + 40F * (diameter / STANDARD_SIZE), y + farNeedle);
 
         // Create The B2 Body
         B2 = world.createBody(bodyDef);
@@ -300,11 +318,13 @@ public class SpinWheel implements Disposable {
         // Dispose The Shape
         circle.dispose();
 
-        // add B2 body to array
+        // add B2 body to pegsSelectors
         // bodies.add(B2);
     }
 
-    // Center static body to join needle with it by joint.
+    /**
+     * Center static body to join needle with it by joint.
+     */
     private void B0_of_needle() {
         CircleShape circle = new CircleShape();
         // set The Shape of Base
@@ -314,7 +334,7 @@ public class SpinWheel implements Disposable {
         // Define The Base Of Wheel
         bodyDef.type = BodyType.StaticBody;
 
-        bodyDef.position.set(x, y + farNeedle + incY * (diameter / STANDARD_SIZE));
+        bodyDef.position.set(x, y + farNeedle + 5F * (diameter / STANDARD_SIZE));
 
         // Create The B Body
         B0 = world.createBody(bodyDef);
@@ -325,17 +345,13 @@ public class SpinWheel implements Disposable {
         // Create The B Fixture
         B0.createFixture(fixtureDef);
 
-        // Dispose The Shape
+        // shape is no longer used.
         circle.dispose();
-
-        // add B body to array
-        // bodies.add(B0);
     }
 
-    // distance of needle from the wheel
-    private float farNeedle;
-
-    // The needle is a body with a single fixture in the shape of a polygon as a kite shape.
+    /**
+     * The needle is a body with a single fixture in the shape of a polygon as a kite shape.
+     */
     private void core_of_needle(float needleWidth, float needleHeight) {
         PolygonShape polygon = new PolygonShape();
         // set The Shape of Needle
@@ -370,7 +386,9 @@ public class SpinWheel implements Disposable {
         polygon.dispose();
     }
 
-    // The wheel is attached to the base via a revolute joint. This joint allows the wheel to spin freely about the center.
+    /**
+     * attach wheel to its base via a revolute joint. This joint allows the wheel to spin freely about the center.
+     */
     private void joint_base_core_of_wheel() {
         revJointDef.bodyA = wheelBase;
         revJointDef.bodyB = wheelCore;
@@ -378,12 +396,14 @@ public class SpinWheel implements Disposable {
         world.createJoint(revJointDef);
     }
 
-    // keep needle in the center position with two distances joint connected by two bodies B1 and B2.
+    /**
+     * keep needle in the center position with two distances joint connected by two bodies B1 and B2.
+     */
     private void joint_B1_B2_with_UP_needle() {
         disJointDef.bodyA = B1;
         disJointDef.bodyB = needle;
         disJointDef.localAnchorB.set(0, 15 / PPM);
-        disJointDef.length = (float) Math.sqrt(Math.pow(incX * (diameter / STANDARD_SIZE), 2) + Math.pow(15 / PPM + incY * (diameter / STANDARD_SIZE), 2));
+        disJointDef.length = (float) Math.sqrt(Math.pow(40F * (diameter / STANDARD_SIZE), 2) + Math.pow(15 / PPM + 5F * (diameter / STANDARD_SIZE), 2));
         disJointDef.collideConnected = true;
         world.createJoint(disJointDef);
 
@@ -400,61 +420,142 @@ public class SpinWheel implements Disposable {
         world.createJoint(revJointDef);
     }
 
-    public void render() {
+    /**
+     * @param debug mode.
+     */
+    public void render(boolean debug) {
         world.step(1 / 60f, 8, 2);
 
         if (debug)
             renderer.render(world, camera.combined);
     }
 
-    public void setDebug(boolean debug) {
-        this.debug = debug;
-    }
-
-    // timer for spinning
-    private Timer timer;
-
     /**
-     * @param impulse 50 is maximum value
-     */
-    public void spin(float impulse) {
-        spin(MathUtils.clamp(impulse, 0, 50), 0.1f, 0.01f, MathUtils.random(30, 60));
-    }
-
-    /**
-     * Apply a torque. This affects the angular velocity without affecting the linear velocity of the center of mass.
-     * This wakes up the body.
+     * This method used one time only.
      *
-     * @param impulse         spin impulse the angular in units of kg*m*m/s
-     * @param delaySeconds    spin task occur once after the specified delay.
-     * @param intervalSeconds spin task occur at the specified interval.
-     * @param repeatCount     spin task occur at a number of additional times.
+     * @param omega spin impulse the angular in units of kg*m*m/s. The Maximum value is 30 to avoid needle to slip from joints.
      */
-    private void spin(final float impulse, float delaySeconds, float intervalSeconds, int repeatCount) {
-        timer = new Timer();
-        Task task = new Task() {
-            public void run() {
-                wheelCore.applyAngularImpulse(impulse, true);
-            }
-        };
-        timer.scheduleTask(task, delaySeconds, intervalSeconds, repeatCount);
+    public void spin(float omega) {
+//        if (spinned)
+//            return;
+        wheelCore.setAngularVelocity(MathUtils.clamp(omega, 0, 30));
+        spinned = true;
     }
 
-    // pause spinning with pause timer
-    public void pause() {
-        if (timer != null)
-            timer.stop();
+    /**
+     * @return true after calling {@link #spin(float)} method.
+     */
+    public boolean spinningStopped() {
+        return !wheelCore.isAwake();
     }
 
-    // resume spinning with resume timer
-    public void resume() {
-        if (timer != null)
-            timer.start();
+    public void setWorldContactListener(ContactListener listener) {
+        world.setContactListener(listener);
+    }
+
+    /**
+     * This method is useful to connect this boby with UI data and some properties.
+     *
+     * @return body of wheel.
+     */
+    public Body getWheelBody() {
+        return wheelCore;
+    }
+
+    /**
+     * This method is useful to connect this boby with UI data and some properties.
+     *
+     * @return body of needle.
+     */
+    public Body getNeedleBody() {
+        return needle;
+    }
+
+    /**
+     * @return center needle rotation value of X (NOT center X of the needle shape.) according given width.
+     */
+    public float getNeedleCenterX(float needleWidth) {
+        return needleWidth / 2;
+    }
+
+    /**
+     * @return center needle rotation value of Y (NOT center Y of the needle shape.) according given height.
+     */
+    public float getNeedleCenterY(float needleHeight) {
+        return 3 * needleHeight / 4;
+    }
+
+    // contains two pegs (as a number which saved in UserData) with the object between them.
+    private final IntArray pegsSelectors = new IntArray(2);
+    // to connect between data (two pegs numbers) and object which this lucky element.
+    private ObjectMap<IntArray, Object> elements = new ObjectMap<IntArray, Object>();
+
+    /**
+     * @param elements contains all data with known their objects which have two pegs numbers for each object.
+     */
+    public void setElements(ObjectMap<IntArray, Object> elements) {
+        this.elements = elements;
+    }
+
+    /**
+     * @param object is between data (two numbers of pegs as known)
+     * @param data   two numbers of pegs.
+     */
+    public void addElementData(Object object, IntArray data) {
+        elements.put(data, object);
+    }
+
+    /**
+     * @return object between that two pegs.
+     */
+    public Object getLuckyWinElement() {
+        if (pegsSelectors.size > 0)
+            for (IntArray array : elements.keys())
+                if (array.contains(pegsSelectors.get(0)) && array.contains(pegsSelectors.get(1)))
+                    return elements.get(array);
+        return null;
     }
 
     @Override
     public void dispose() {
         world.dispose();
         renderer.dispose();
+    }
+
+    private final class SpinWheelWorldContact implements ContactListener {
+        @Override
+        public void beginContact(Contact contact) {
+        }
+
+        @Override
+        public void endContact(Contact contact) {
+            Object data = contact.getFixtureB().getUserData();
+            if (data == null) return;
+
+            int nPeg = (Integer) data, peg2;
+
+            if (wheelCore.getAngularVelocity() <= 0) {    // add [before] peg
+                int before = nPeg + 1;
+                if (before == nPegs)
+                    before = 0;
+                peg2 = before;
+            } else {                                      // add [after] peg
+                int after = nPeg - 1;
+                if (after == 0)
+                    after = nPegs;
+                peg2 = after;
+            }
+
+            pegsSelectors.clear();
+            pegsSelectors.addAll(nPeg, peg2);
+        }
+
+        @Override
+        public void preSolve(Contact contact, Manifold oldManifold) {
+        }
+
+        @Override
+        public void postSolve(Contact contact, ContactImpulse impulse) {
+        }
     }
 }

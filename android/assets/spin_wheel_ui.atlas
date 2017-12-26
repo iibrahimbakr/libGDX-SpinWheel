@@ -1,0 +1,26 @@
+
+spin_wheel_ui.png
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+spin_wheel
+  rotate: false
+  xy: 1, 155
+  size: 750, 750
+  orig: 750, 750
+  offset: 0, 0
+  index: -1
+spin_button
+  rotate: false
+  xy: 1, 1
+  size: 151, 152
+  orig: 151, 152
+  offset: 0, 0
+  index: -1
+needle
+  rotate: false
+  xy: 753, 788
+  size: 44, 117
+  orig: 44, 117
+  offset: 0, 0
+  index: -1
