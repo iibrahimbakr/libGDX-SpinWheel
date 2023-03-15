@@ -2,7 +2,7 @@
 
 **1. Debugging Mode:** to show Box2D working.
 
-![Debugging Mode](https://media.giphy.com/media/3o7aD37rIAeJJstgCk/giphy.gif)
+![Debugging Mode](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGNkODA3ODRhM2E2MGY5ZTgyYWIwYzk1ODFlMTlmZTMwNmFiYjkwOCZjdD1n/JtLpR3ic3O9V8Z4Fpd/giphy.gif)
 
 **2. UI Mode:** to show real fortune spin wheel.
 
